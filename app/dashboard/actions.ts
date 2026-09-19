@@ -3,7 +3,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { TaskStatus } from "@/lib/generated/prisma/enums";
+import { TaskStatus } from "@prisma/client";
 
 async function requireOrg() {
   const { orgId, userId } = await auth.protect();
