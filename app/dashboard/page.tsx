@@ -1,6 +1,6 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { TaskStatus } from "@/app/generated/prisma/enums";
+import { TaskStatus } from "@/lib/generated/prisma/enums";
 import { createTask, deleteTask, moveTask } from "./actions";
 
 const COLUMNS = [
