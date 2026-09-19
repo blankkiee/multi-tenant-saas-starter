@@ -4,9 +4,9 @@ import { TaskStatus } from "@/app/generated/prisma/enums";
 import { createTask, deleteTask, moveTask } from "./actions";
 
 const COLUMNS = [
-  { status: TaskStatus.TODO, label: "To do" },
-  { status: TaskStatus.IN_PROGRESS, label: "In progress" },
-  { status: TaskStatus.DONE, label: "Done" },
+  { status: TaskStatus.TODO, label: "To do", dot: "bg-muted" },
+  { status: TaskStatus.IN_PROGRESS, label: "In progress", dot: "bg-accent" },
+  { status: TaskStatus.DONE, label: "Done", dot: "bg-emerald-500" },
 ];
 
 export default async function DashboardPage() {
@@ -17,12 +17,22 @@ export default async function DashboardPage() {
     ? await client.organizations.getOrganization({ organizationId: orgId })
     : null;
 
-  const tasks = orgId
-    ? await prisma.task.findMany({
-        where: { orgId },
-        orderBy: { createdAt: "desc" },
-      })
-    : [];
+  if (!organization) {
+    return (
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center gap-3 px-5 py-24 text-center sm:px-8">
+        <h1 className="text-xl font-semibold">No organization selected</h1>
+        <p className="max-w-sm text-sm text-muted">
+          Use the organization switcher in the header to create one or join an
+          existing team.
+        </p>
+      </main>
+    );
+  }
+
+  const tasks = await prisma.task.findMany({
+    where: { orgId: organization.id },
+    orderBy: { createdAt: "desc" },
+  });
 
   const creatorIds = [...new Set(tasks.map((task) => task.createdBy))];
   const creators = creatorIds.length
@@ -31,27 +41,20 @@ export default async function DashboardPage() {
   const creatorNames = new Map(
     creators.map((user) => [
       user.id,
-      user.firstName ?? user.emailAddresses[0]?.emailAddress ?? "Someone",
+      user.firstName ?? user.emailAddresses[0]?.emailAddress ?? "a teammate",
     ]),
   );
 
-  if (!organization) {
-    return (
-      <main className="flex flex-1 flex-col items-center justify-center gap-2 p-16 text-center">
-        <h1 className="text-2xl font-semibold">No organization selected</h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          Use the organization switcher above to create or join one.
-        </p>
-      </main>
-    );
-  }
-
   return (
-    <main className="flex flex-1 flex-col gap-8 p-8 sm:p-12">
-      <div>
-        <h1 className="text-2xl font-semibold">{organization.name}</h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          Tasks are visible only to members of this organization.
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-5 py-10 sm:px-8">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {organization.name}
+        </h1>
+        <p className="text-sm text-muted">
+          {tasks.length === 0
+            ? "No tasks yet — add the first one below."
+            : `${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}, visible only to this organization.`}
         </p>
       </div>
 
@@ -61,11 +64,11 @@ export default async function DashboardPage() {
           placeholder="What needs to be done?"
           required
           maxLength={200}
-          className="flex-1 rounded border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700"
+          className="flex-1 rounded-md border border-border bg-background px-3.5 py-2 text-sm outline-none transition-colors placeholder:text-muted focus:border-accent"
         />
         <button
           type="submit"
-          className="rounded bg-foreground px-4 py-2 font-medium text-background"
+          className="cursor-pointer rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90"
         >
           Add task
         </button>
@@ -78,73 +81,80 @@ export default async function DashboardPage() {
           );
 
           return (
-            <section
-              key={column.status}
-              className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
-            >
-              <h2 className="flex justify-between text-sm font-medium uppercase tracking-wide text-zinc-500">
-                {column.label}
-                <span>{columnTasks.length}</span>
-              </h2>
+            <section key={column.status} className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 px-1">
+                <span className={`size-1.5 rounded-full ${column.dot}`} />
+                <h2 className="text-xs font-medium uppercase tracking-wider">
+                  {column.label}
+                </h2>
+                <span className="ml-auto text-xs text-muted">
+                  {columnTasks.length}
+                </span>
+              </div>
 
-              {columnTasks.length === 0 && (
-                <p className="text-sm text-zinc-400">Nothing here.</p>
-              )}
+              <div className="flex min-h-24 flex-col gap-2 rounded-lg border border-dashed border-border p-2">
+                {columnTasks.length === 0 && (
+                  <p className="m-auto text-xs text-muted">Empty</p>
+                )}
 
-              {columnTasks.map((task) => (
-                <article
-                  key={task.id}
-                  className="flex flex-col gap-2 rounded border border-zinc-200 p-3 dark:border-zinc-800"
-                >
-                  <p className="font-medium">{task.title}</p>
-                  <p className="text-xs text-zinc-500">
-                    Added by {creatorNames.get(task.createdBy) ?? "Someone"}
-                  </p>
+                {columnTasks.map((task) => (
+                  <article
+                    key={task.id}
+                    className="group rounded-md border border-border bg-background p-3 transition-shadow hover:shadow-sm"
+                  >
+                    <p className="text-sm leading-snug">{task.title}</p>
+                    <p className="mt-1 text-xs text-muted">
+                      {creatorNames.get(task.createdBy) ?? "A teammate"}
+                    </p>
 
-                  <div className="flex gap-1">
-                    {columnIndex > 0 && (
-                      <form action={moveTask}>
+                    <div className="mt-2.5 flex items-center gap-1">
+                      {columnIndex > 0 && (
+                        <form action={moveTask}>
+                          <input type="hidden" name="id" value={task.id} />
+                          <input
+                            type="hidden"
+                            name="status"
+                            value={COLUMNS[columnIndex - 1].status}
+                          />
+                          <button
+                            title={`Move to ${COLUMNS[columnIndex - 1].label}`}
+                            className="flex size-6 cursor-pointer items-center justify-center rounded text-muted transition-colors hover:bg-subtle hover:text-foreground"
+                          >
+                            &larr;
+                          </button>
+                        </form>
+                      )}
+
+                      {columnIndex < COLUMNS.length - 1 && (
+                        <form action={moveTask}>
+                          <input type="hidden" name="id" value={task.id} />
+                          <input
+                            type="hidden"
+                            name="status"
+                            value={COLUMNS[columnIndex + 1].status}
+                          />
+                          <button
+                            title={`Move to ${COLUMNS[columnIndex + 1].label}`}
+                            className="flex size-6 cursor-pointer items-center justify-center rounded text-muted transition-colors hover:bg-subtle hover:text-foreground"
+                          >
+                            &rarr;
+                          </button>
+                        </form>
+                      )}
+
+                      <form action={deleteTask} className="ml-auto">
                         <input type="hidden" name="id" value={task.id} />
-                        <input
-                          type="hidden"
-                          name="status"
-                          value={COLUMNS[columnIndex - 1].status}
-                        />
                         <button
-                          className="rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
-                          title={`Move to ${COLUMNS[columnIndex - 1].label}`}
+                          title="Delete task"
+                          className="flex size-6 cursor-pointer items-center justify-center rounded text-muted opacity-0 transition-all hover:bg-subtle hover:text-red-500 focus-visible:opacity-100 group-hover:opacity-100"
                         >
-                          ←
+                          &times;
                         </button>
                       </form>
-                    )}
-
-                    {columnIndex < COLUMNS.length - 1 && (
-                      <form action={moveTask}>
-                        <input type="hidden" name="id" value={task.id} />
-                        <input
-                          type="hidden"
-                          name="status"
-                          value={COLUMNS[columnIndex + 1].status}
-                        />
-                        <button
-                          className="rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
-                          title={`Move to ${COLUMNS[columnIndex + 1].label}`}
-                        >
-                          →
-                        </button>
-                      </form>
-                    )}
-
-                    <form action={deleteTask} className="ml-auto">
-                      <input type="hidden" name="id" value={task.id} />
-                      <button className="rounded border border-zinc-300 px-2 py-1 text-xs text-red-600 dark:border-zinc-700">
-                        Delete
-                      </button>
-                    </form>
-                  </div>
-                </article>
-              ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
             </section>
           );
         })}

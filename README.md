@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lanes
 
-## Getting Started
+A multi-tenant task board. Each organization gets its own private board — users
+can belong to several organizations and switch between them, and tasks are
+never visible across organization boundaries.
 
-First, run the development server:
+Built as a demonstration of the plumbing behind a typical B2B SaaS app:
+authentication, organizations, and per-tenant data isolation.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Stack
+
+| Concern        | Choice                                        |
+| -------------- | --------------------------------------------- |
+| Framework      | Next.js (App Router, Server Actions)          |
+| Database       | Neon (serverless Postgres)                    |
+| ORM            | Prisma                                        |
+| Auth & tenants | Clerk, using Organizations for multi-tenancy  |
+| Styling        | Tailwind CSS                                  |
+| Hosting        | Vercel                                        |
+
+## How multi-tenancy works
+
+Clerk is the source of truth for users and organizations, so the database
+stores no user or organization tables of its own. Each row of application data
+carries the Clerk organization ID it belongs to:
+
+```prisma
+model Task {
+  id        String     @id @default(cuid())
+  title     String
+  status    TaskStatus @default(TODO)
+  orgId     String
+  createdBy String
+  createdAt DateTime   @default(now())
+
+  @@index([orgId])
+}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Every read and write is scoped to the caller's active organization, which is
+resolved server-side from the session rather than trusted from the client:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```ts
+const { orgId } = await auth.protect();
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+await prisma.task.updateMany({
+  where: { id, orgId }, // orgId in the filter is what enforces isolation
+  data: { status },
+});
+```
 
-## Learn More
+Writes use `updateMany` / `deleteMany` with `orgId` in the `where` clause so a
+task ID belonging to another organization matches zero rows instead of being
+modified.
 
-To learn more about Next.js, take a look at the following resources:
+## Running locally
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm install
+npx prisma migrate dev
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Requires a `.env.local` with:
 
-## Deploy on Vercel
+```
+DATABASE_URL=                        # Neon connection string
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=   # Clerk publishable key
+CLERK_SECRET_KEY=                    # Clerk secret key
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Clerk's application must have **Organizations** enabled.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deploying
+
+The same three environment variables need to be set in the hosting project.
+`prisma generate` runs on `postinstall` so the client is available at build
+time. Database migrations are applied separately with `npx prisma migrate deploy`.

@@ -3,6 +3,17 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 
+// Clerk renders its own UI, so its palette has to be told about dark mode
+// separately from the CSS variables the rest of the app uses.
+const DARK_VARIABLES = {
+  colorBackground: "#121215",
+  colorForeground: "#fafafa",
+  colorMutedForeground: "#a1a1aa",
+  colorInput: "#1c1c20",
+  colorInputForeground: "#fafafa",
+  colorNeutral: "white",
+};
+
 export function ClerkThemeProvider({
   children,
 }: {
@@ -22,14 +33,8 @@ export function ClerkThemeProvider({
   return (
     <ClerkProvider
       appearance={{
-        variables: isDark
-          ? {
-              colorBackground: "#0a0a0a",
-              colorForeground: "#ededed",
-              colorInput: "#171717",
-              colorInputForeground: "#ededed",
-            }
-          : undefined,
+        variables: isDark ? DARK_VARIABLES : undefined,
+        elements: { organizationSwitcherTrigger: "text-sm" },
       }}
     >
       {children}
