@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../app/generated/prisma"
@@ -14,14 +11,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
 
 // Clerk is the source of truth for users and organizations.
 // App data just needs to remember which Clerk organization it belongs to.
-model Note {
-  id        String   @id @default(cuid())
-  content   String
+model Task {
+  id        String     @id @default(cuid())
+  title     String
+  status    TaskStatus @default(TODO)
   orgId     String
-  createdAt DateTime @default(now())
+  createdBy String
+  createdAt DateTime   @default(now())
 
   @@index([orgId])
 }
