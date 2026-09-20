@@ -32,12 +32,20 @@ export default function Home() {
           together. Every organization gets its own private board.
         </p>
 
-        <Link
-          href="/dashboard"
-          className="mt-2 rounded-md bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90"
-        >
-          Open your board
-        </Link>
+        <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+          <Link
+            href="/dashboard"
+            className="rounded-md bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90"
+          >
+            Open your board
+          </Link>
+          <Link
+            href="/demo"
+            className="rounded-md border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-subtle"
+          >
+            View a demo board
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
